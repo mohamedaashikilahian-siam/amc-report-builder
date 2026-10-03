@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { parseDur, fmtDur, hoursFor, genSummary, makeModel, addMonth, buildDocxZip, buildPdfDoc } from '../public/js/core.js';
+import { parseDur, fmtDur, hoursFor, carryForward, genSummary, makeModel, addMonth, buildDocxZip, buildPdfDoc } from '../public/js/core.js';
 
 const AMC = m => ({ label: 'AMC Activities', kind: 'amc', mins: m });
 const rep = (month, work) => ({ month, work, acts: [{ name: 'Website Backup', status: 'done', remark: '' }], summary: 'x' });
@@ -72,4 +73,32 @@ test('Word and PDF files can be built', async () => {
   assert.ok(zip.length > 1000);
   const pdf = buildPdfDoc(client, models, jsPDF, autoTable);
   assert.equal(pdf.getNumberOfPages(), 2);
+});
+
+test('the next report starts from what the last saved report left behind', () => {
+  const c = { allocMins: 480 };
+  const l = [rep('2026-06', [AMC(50)]), rep('2026-07', [AMC(50)])];
+  const k = carryForward(c, l, '2026-08');
+  assert.equal(k.last, '2026-07');
+  assert.deepEqual(k.figures, { prev: 430, used: 50, consumed: 100, remaining: 380 });
+  assert.equal(k.start, 380);
+  assert.equal(k.gap, 0);
+  assert.equal(carryForward(c, l, '2026-10').gap, 2); // Aug and Sep were never saved
+  assert.deepEqual(carryForward(c, [], '2026-08'), { last: null, start: 480, gap: 0 });
+});
+
+test('Word and PDF carry the Siam letterhead and watermark', async () => {
+  globalThis.JSZip = JSZip;
+  const assets = { logo: readFileSync('public/img/siam-logo.png'), watermark: readFileSync('public/img/siam-watermark.png') };
+  const client = { contact: 'A', url: 'example.com', amcStart: '2026-05-08', amcEnd: '2027-05-08', allocMins: 480, note: '' };
+  const list = [rep('2026-07', [AMC(50)])];
+  const models = [makeModel(client, list, '2026-07')];
+  const zip = await JSZip.loadAsync(await buildDocxZip(client, models, assets).generateAsync({ type: 'uint8array' }));
+  assert.ok(zip.file('word/media/siam-logo.png') && zip.file('word/media/siam-watermark.png'));
+  const hdr = await zip.file('word/header1.xml').async('string');
+  assert.match(hdr, /behindDoc="1"/);
+  assert.match(hdr, /We don't sell code, we deliver clarity\./);
+  assert.match(await zip.file('word/_rels/header1.xml.rels').async('string'), /siam-watermark\.png/);
+  const pdf = buildPdfDoc(client, models, jsPDF, autoTable, assets);
+  assert.ok(pdf.output('arraybuffer').byteLength > assets.logo.length);
 });

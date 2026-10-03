@@ -190,6 +190,7 @@ If `git push` says it was rejected, someone (or another computer) pushed first. 
 |---|---|
 | `public/index.html` | The page |
 | `public/css/style.css` | Colours and layout |
+| `public/img/` | Siam logo and watermark used on the preview, Word and PDF letterhead |
 | `public/js/core.js` | Hour maths, summary wording, Word and PDF layout |
 | `public/js/ui.js` | The screen: forms, buttons, preview |
 | `public/js/store.js` | Saving and loading (Firestore online, or this browser) |
@@ -197,6 +198,8 @@ If `git push` says it was rejected, someone (or another computer) pushed first. 
 | `firestore.rules` | Who may read and write the data |
 | `tests/core.test.mjs` | Checks the hour maths against your real reports. Run `npm test` |
 | `seed/` | Your starter data. Stays on your computer |
+
+The Word and PDF letterhead (logo, website line, tagline, watermark, page number) copies the Siam Computing template PDF. Its positions are in `core.js` (`LH`).
 
 Typical changes: report wording is in `core.js` (`genSummary`), report layout is in `core.js` (`sectionDocx` for Word, `buildPdfDoc` for PDF), colours are the first lines of `style.css`.
 

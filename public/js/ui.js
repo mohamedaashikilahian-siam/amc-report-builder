@@ -1,5 +1,5 @@
 /* ===== AMC Report Builder: interface ===== */
-import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
+import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
 import { createStore } from './store.js';
 const $ = s => document.querySelector(s);
 const S = { clients: [], reports: {}, clientId: null, month: '', acts: [], work: [], summary: '', edited: false, includePrev: false, edit: null, confirm: '', msg: '', msgCls: '', loaded: { c: false, r: false } };
@@ -129,7 +129,7 @@ function renderForm() {
   const seg = (a, i) => '<div class="seg" role="group" aria-label="Status of ' + esc(a.name) + '">' + [['done', 'Done'], ['notdone', 'Not done'], ['na', 'N/A']].map(x => '<button type="button" data-act="status" data-i="' + i + '" data-s="' + x[0] + '" aria-pressed="' + (a.status === x[0]) + '">' + x[1] + '</button>').join('') + '</div>';
   el.innerHTML =
     '<section class="panel"><h2>Report month</h2><div class="row"><label class="f grow" style="max-width:220px">Month<input type="month" id="month" value="' + esc(S.month) + '"></label><span id="savedpill"></span></div>' +
-    '<p class="hint">Opens on the next month this client has no saved report for.</p></section>' +
+    '<p class="hint">Opens on the next month this client has no saved report for.</p><div id="carry"></div></section>' +
     '<section class="panel"><h2>Maintenance activities</h2><div class="acts">' + S.acts.map((a, i) =>
       '<div class="act"><span class="nm">' + esc(a.name) + '</span>' + seg(a, i) + '<input type="text" data-k="remark" data-i="' + i + '" value="' + esc(a.remark) + '" placeholder="Remarks (e.g. Expiry: Oct 10, 2026)" aria-label="Remarks for ' + esc(a.name) + '"><button type="button" class="xbtn rm" data-act="rm-act" data-i="' + i + '" aria-label="Remove ' + esc(a.name) + ' from this report" title="Remove from this report">×</button>' +
       (() => { const f = expiryFlag(a.remark); return f ? '<span class="flag ' + f.cls + '">' + esc(f.t) + '</span>' : ''; })() + '</div>').join('') + '</div>' +
@@ -160,6 +160,21 @@ function renderLive() {
         (h.remaining < 0 ? '<span class="flag bad" style="grid-column:1/-1">⚠ This goes over the AMC allocation by ' + esc(fmtDur(-h.remaining)) + '.</span>' : low ? '<span class="flag warn" style="grid-column:1/-1">⚠ Less than 20% of the AMC hours are left.</span>' : '');
     }
   }
+  const cf = $('#carry');
+  if (cf) {
+    if (!valid) cf.innerHTML = '';
+    else {
+      const k = carryForward(c, clientReports(c.id), S.month);
+      if (!k.last) cf.innerHTML = '<p class="hint">No earlier report saved for this client. ' + esc(monthLabel(S.month)) + ' starts from the full AMC allocation of ' + esc(fmtDur(k.start)) + '.</p>';
+      else {
+        const f = k.figures;
+        cf.innerHTML = '<div class="carry"><h2 style="margin:12px 0 0">Carried forward from ' + esc(monthLabel(k.last)) + '</h2><div class="calc">' +
+          [['Previous balance', f.prev], ['Used that month', f.used], ['Total consumed', f.consumed], ['Remaining', f.remaining, 1]].map(x => '<div class="' + (x[2] ? 'hi' : '') + '"><small>' + x[0] + '</small><strong>' + esc(fmtDur(x[1])) + '</strong></div>').join('') + '</div>' +
+          '<p class="hint">' + esc(monthLabel(S.month)) + ' opens with a previous balance of <b>' + esc(fmtDur(k.start)) + '</b>.</p>' +
+          (k.gap > 0 ? '<span class="flag warn">⚠ ' + k.gap + ' month' + (k.gap === 1 ? '' : 's') + ' between ' + esc(monthLabel(k.last)) + ' and ' + esc(monthLabel(S.month)) + ' ' + (k.gap === 1 ? 'has' : 'have') + ' no saved report, so ' + (k.gap === 1 ? 'its' : 'their') + ' hours are not counted.</span>' : '') + '</div>';
+      }
+    }
+  }
   const sp = $('#savedpill');
   if (sp) {
     const saved = S.reports[c.id + '_' + S.month];
@@ -171,7 +186,7 @@ function renderLive() {
 }
 function sheetHTML(m) {
   const ci = m.info;
-  return '<article class="sheet"><div class="kick">MONTHLY AMC REPORT</div><h3>' + esc(m.title) + '</h3>' +
+  return '<article class="sheet"><div class="lh"><img src="img/siam-logo.png" alt="Siam Computing"><div><a href="https://siamcomputing.com" target="_blank" rel="noopener">https://siamcomputing.com</a><br><i>We don\'t sell code, we deliver clarity.</i></div></div><div class="kick">MONTHLY AMC REPORT</div><h3>' + esc(m.title) + '</h3>' +
     '<h4>Client Information</h4><table><tr><td class="lbl">' + esc(ci[0][0]) + '</td><td>' + esc(ci[0][1]) + '</td><td class="lbl">' + esc(ci[1][0]) + '</td><td>' + esc(ci[1][1]) + '</td></tr><tr><td class="lbl">' + esc(ci[2][0]) + '</td><td>' + esc(ci[2][1]) + '</td><td class="lbl">' + esc(ci[3][0]) + '</td><td>' + esc(ci[3][1]) + '</td></tr></table>' +
     '<h4>Maintenance Activities</h4><table><tr><th>Activity</th><th class="c">Done</th><th class="c">Not Done</th><th>Remarks</th></tr>' + m.acts.map(a => '<tr><td>' + esc(a.name) + '</td><td class="c tick">' + (a.status === 'done' ? '✔' : '☐') + '</td><td class="c tick">' + (a.status === 'notdone' ? '✔' : '☐') + '</td><td>' + esc(a.remark) + '</td></tr>').join('') + '</table>' +
     '<h4>AMC Hours Utilization</h4><table><tr><th>Item</th><th>Hours</th></tr>' + m.hours.map((r, i) => '<tr' + (i === m.hours.length - 1 ? ' class="hi"' : '') + '><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>' +
@@ -195,6 +210,9 @@ function renderAll() {
 }
 
 /* ---------- export ---------- */
+let assetsP = null;
+const loadAssets = () => assetsP || (assetsP = Promise.all(['siam-logo', 'siam-watermark'].map(n => fetch('img/' + n + '.png').then(r => { if (!r.ok) throw new Error('Missing img/' + n + '.png'); return r.arrayBuffer(); })))
+  .then(([logo, watermark]) => ({ logo: new Uint8Array(logo), watermark: new Uint8Array(watermark) })).catch(e => { assetsP = null; throw e; }));
 function saveBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
@@ -207,7 +225,8 @@ async function doExport(kind) {
   try {
     setMsg('Saving and building ' + kind.toUpperCase() + '...');
     await putReport(formDoc());
-    const blob = kind === 'docx' ? await docxBlob(c, models) : pdfBlob(c, models);
+    const assets = await loadAssets();
+    const blob = kind === 'docx' ? await docxBlob(c, models, assets) : pdfBlob(c, models, assets);
     saveBlob(blob, name);
     renderClients(); renderLive();
     setMsg('Saved ' + monthLabel(S.month) + ' and downloaded ' + name, 'good');
