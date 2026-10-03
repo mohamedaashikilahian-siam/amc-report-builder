@@ -1,0 +1,19 @@
+{
+  "name": "amc-report-builder",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Monthly AMC report builder with saved hour balances, Word and PDF export",
+  "scripts": {
+    "start": "npx --yes serve public -l 5173",
+    "test": "node --test tests/core.test.mjs"
+  },
+  "devDependencies": {
+    "jspdf": "2.5.1",
+    "jspdf-autotable": "3.8.2",
+    "jszip": "3.10.1"
+  },
+  "dependencies": {
+    "firebase": "^12.19.0"
+  }
+}

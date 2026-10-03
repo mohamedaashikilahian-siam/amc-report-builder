@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only the Google accounts listed here can read or write anything.
+    // Replace the example with your own address; add more people inside the brackets, separated by commas.
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['mohamedaashikilahi.an@example.com'];
+    }
+    match /{document=**} {
+      allow read, write: if allowed();
+    }
+  }
+}
