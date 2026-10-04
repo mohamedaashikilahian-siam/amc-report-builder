@@ -52,6 +52,15 @@ function carryForward(client, list, month) {
   return { last: last.month, figures: hoursFor(client, list, last.month), start: hoursFor(client, list, month).prev, gap };
 }
 function monthDiff(a, b) { const x = a.split('-').map(Number), y = b.split('-').map(Number); return (y[0] - x[0]) * 12 + (y[1] - x[1]); }
+/* AMC contract status as of `today` (a Date). warn = inside the last 3 months. A report is allowed for the month the AMC ends in, not after it. */
+function amcState(client, today) {
+  const e = client.amcEnd.split('-').map(Number), end = new Date(e[0], e[1] - 1, e[2]);
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((end - t0) / 864e5);
+  const limit = new Date(t0.getFullYear(), t0.getMonth() + 3, t0.getDate());
+  return { ended: days < 0, days, warn: days >= 0 && end <= limit };
+}
+const monthAfterAmc = (client, month) => month > client.amcEnd.slice(0, 7);
 function usedText(work) {
   const w = work.filter(x => x.mins > 0);
   if (w.length <= 1) return fmtDur(totalMins(work));
@@ -320,4 +329,4 @@ function buildPdfDoc(client, models, jsPDFCtor, autoTableFn, assets) {
 }
 const pdfBlob = (client, models, assets) => buildPdfDoc(client, models, globalThis.jspdf.jsPDF, null, assets).output('blob');
 
-export { MON, MONTHS, DEFAULT_ACTS, esc, monthLabel, fmtDate, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, usedText, historyRows, genSummary, makeModel, buildDocxZip, docxBlob, buildPdfDoc, pdfBlob };
+export { MON, MONTHS, DEFAULT_ACTS, esc, monthLabel, fmtDate, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, amcState, monthAfterAmc, usedText, historyRows, genSummary, makeModel, buildDocxZip, docxBlob, buildPdfDoc, pdfBlob };

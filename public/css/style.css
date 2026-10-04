@@ -112,3 +112,8 @@ input.err { border-color: var(--bad); background: var(--bad-soft); }
 html { background: var(--bg); }
 .login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
 .login .panel { max-width: 420px; width: 100%; }
+
+.amcbox { border-width: 1px; }
+.amcbox.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.amcbox.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }

@@ -1,5 +1,5 @@
 /* ===== AMC Report Builder: interface ===== */
-import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
+import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, amcState, monthAfterAmc, fmtDate, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
 import { createStore } from './store.js';
 const $ = s => document.querySelector(s);
 const S = { clients: [], reports: {}, clientId: null, month: '', acts: [], work: [], summary: '', edited: false, includePrev: false, edit: null, confirm: '', msg: '', msgCls: '', loaded: { c: false, r: false } };
@@ -70,8 +70,9 @@ function renderClients() {
   const el = $('#clients');
   el.innerHTML = S.clients.map(c => {
     const l = clientReports(c.id), used = l.reduce((a, r) => a + totalMins(r.work), 0), next = l.length ? addMonth(l[l.length - 1].month, 1) : addMonth(todayYM, -1);
-    const due = next <= addMonth(todayYM, -1);
-    return '<button type="button" class="client" data-act="pick" data-id="' + esc(c.id) + '" aria-pressed="' + (c.id === S.clientId) + '"><b>' + esc(c.label) + '</b><span class="url">' + esc(c.url) + '</span><span class="meta"><span class="pill">' + esc(fmtDur(c.allocMins - used)) + ' left</span><span class="pill ' + (due ? 'warn' : '') + '">' + esc(monthLabel(next)) + (due ? ' due' : ' next') + '</span></span></button>';
+    const st = amcState(c, now), over = monthAfterAmc(c, next), due = !over && next <= addMonth(todayYM, -1);
+    const amcPill = st.ended ? '<span class="pill bad">AMC ended ' + esc(fmtDate(c.amcEnd)) + '</span>' : st.warn ? '<span class="pill warn">AMC ends ' + esc(fmtDate(c.amcEnd)) + ' (' + st.days + (st.days === 1 ? ' day' : ' days') + ')</span>' : '';
+    return '<button type="button" class="client" data-act="pick" data-id="' + esc(c.id) + '" aria-pressed="' + (c.id === S.clientId) + '"><b>' + esc(c.label) + '</b><span class="url">' + esc(c.url) + '</span><span class="meta"><span class="pill">' + esc(fmtDur(c.allocMins - used)) + ' left</span>' + (over ? '' : '<span class="pill ' + (due ? 'warn' : '') + '">' + esc(monthLabel(next)) + (due ? ' due' : ' next') + '</span>') + amcPill + '</span></button>';
   }).join('') + '<button type="button" class="client add" data-act="new-client">+ Add client</button>';
 }
 
@@ -127,7 +128,12 @@ function renderForm() {
   const el = $('#form'), c = curClient();
   if (!c) { el.innerHTML = '<section class="panel"><div class="empty">' + (S.clients.length ? 'Pick a client to start a report.' : 'No clients yet. Add one to start your first report.') + '</div></section>'; return; }
   const seg = (a, i) => '<div class="seg" role="group" aria-label="Status of ' + esc(a.name) + '">' + [['done', 'Done'], ['notdone', 'Not done'], ['na', 'N/A']].map(x => '<button type="button" data-act="status" data-i="' + i + '" data-s="' + x[0] + '" aria-pressed="' + (a.status === x[0]) + '">' + x[1] + '</button>').join('') + '</div>';
-  el.innerHTML =
+  const blocked = monthAfterAmc(c, S.month), st = amcState(c, now), off = blocked ? ' disabled' : '';
+  const monthsLeft = Math.max(1, Math.round(st.days / 30.4));
+  const banner = st.ended ? '<section class="panel amcbox bad"><b>This AMC ended on ' + esc(fmtDate(c.amcEnd)) + '.</b> New reports cannot be created after the AMC period' + (blocked ? ', so ' + esc(monthLabel(S.month)) + ' is locked. Pick an earlier month to view or download its report.' : '. Earlier months can still be opened and downloaded.') + '</section>'
+    : blocked ? '<section class="panel amcbox bad"><b>' + esc(monthLabel(S.month)) + ' is after the AMC period ended (' + esc(fmtDate(c.amcEnd)) + ').</b> Reports cannot be created for it. Pick an earlier month.</section>'
+    : st.warn ? '<section class="panel amcbox warn"><b>AMC ends on ' + esc(fmtDate(c.amcEnd)) + ' (' + st.days + (st.days === 1 ? ' day' : ' days') + ' left).</b> Let ' + esc(c.contact) + ' know about the renewal.<div class="row" style="margin-top:8px"><button type="button" class="btn small" data-act="copy-notice">Copy a message for the client</button><span class="hint" style="margin:0" id="noticemsg"></span></div></section>' : '';
+  el.innerHTML = banner +
     '<section class="panel"><h2>Report month</h2><div class="row"><label class="f grow" style="max-width:220px">Month<input type="month" id="month" value="' + esc(S.month) + '"></label><span id="savedpill"></span></div>' +
     '<p class="hint">Opens on the next month this client has no saved report for.</p><div id="carry"></div></section>' +
     '<section class="panel"><h2>Maintenance activities</h2><div class="acts">' + S.acts.map((a, i) =>
@@ -140,7 +146,7 @@ function renderForm() {
       '<button type="button" class="xbtn" data-act="rm-work" data-i="' + i + '" aria-label="Remove this row">×</button></div>').join('') +
     '<button type="button" class="btn small" data-act="add-work">+ Add work item</button><p class="hint">Time as 50m, 1h 15m or 1:15. A bare number counts as minutes.</p><div class="calc" id="calc"></div></section>' +
     '<section class="panel"><h2>Summary</h2><textarea id="summary" rows="5" aria-label="Summary text"></textarea><div class="row" style="margin-top:8px"><button type="button" class="btn small" data-act="regen">Rewrite from activities</button><span class="hint" style="margin:0">Edits you make here are kept until you rewrite.</span></div></section>' +
-    '<section class="panel"><h2>Save and download</h2><div class="row"><button type="button" class="btn primary" data-act="save-report">Save report</button><button type="button" class="btn" data-act="export" data-kind="docx">Download Word</button><button type="button" class="btn" data-act="export" data-kind="pdf">Download PDF</button>' +
+    '<section class="panel"><h2>Save and download</h2><div class="row"><button type="button" class="btn primary" data-act="save-report"' + off + '>Save report</button><button type="button" class="btn" data-act="export" data-kind="docx"' + off + '>Download Word</button><button type="button" class="btn" data-act="export" data-kind="pdf"' + off + '>Download PDF</button>' +
     '<span style="flex:1"></span><button type="button" class="btn danger small" data-act="del-report" id="delrep" hidden>Delete saved report</button></div><p class="msg" id="msg"></p>' +
     '<p class="hint">Saving adds this month to the client\'s balance and history, so next month starts from the right figure.</p></section>';
   $('#summary').value = S.summary;
@@ -219,6 +225,7 @@ function saveBlob(blob, name) {
 }
 async function doExport(kind) {
   const c = curClient(); if (!c || !monthRe.test(S.month)) return setMsg('Pick a month first.', 'bad');
+  if (monthAfterAmc(c, S.month)) return setMsg('The AMC ended on ' + fmtDate(c.amcEnd) + '. No report can be created for ' + monthLabel(S.month) + '.', 'bad');
   if (S.work.some(w => isNaN(parseDur(w.dur)))) return setMsg('One of the times could not be read. Use 50m, 1h 15m or 1:15.', 'bad');
   const models = modelsToShow(); if (!models.length) return;
   const name = c.label.replace(/[^A-Za-z0-9]+/g, '-') + '-AMC-Report-' + (S.includePrev ? 'to-' : '') + S.month + '.' + kind;
@@ -277,6 +284,7 @@ document.addEventListener('click', async ev => {
   if (act === 'regen') { S.edited = false; syncSummary(); return renderLive(); }
   if (act === 'save-report') {
     if (!monthRe.test(S.month)) return setMsg('Pick a month first.', 'bad');
+    if (monthAfterAmc(curClient(), S.month)) return setMsg('The AMC ended on ' + fmtDate(curClient().amcEnd) + '. No report can be created for ' + monthLabel(S.month) + '.', 'bad');
     if (S.work.some(w => isNaN(parseDur(w.dur)))) return setMsg('One of the times could not be read. Use 50m, 1h 15m or 1:15.', 'bad');
     try { await putReport(formDoc()); setMsg('Saved ' + monthLabel(S.month) + '.', 'good'); renderClients(); renderLive(); } catch (e) { setMsg('Could not save: ' + ((e && (e.message || e.code)) || 'unknown error'), 'bad'); }
     return;
@@ -287,6 +295,12 @@ document.addEventListener('click', async ev => {
     return;
   }
   if (act === 'export') return doExport(b.dataset.kind);
+  if (act === 'copy-notice') {
+    const c = curClient(), d = amcState(c, now).days, n = $('#noticemsg');
+    const txt = 'Hi ' + c.contact + ',\n\nThis is a reminder that the Annual Maintenance Contract (AMC) for ' + c.url + ' ends on ' + fmtDate(c.amcEnd) + ' (' + d + (d === 1 ? ' day' : ' days') + ' from now). To keep your website\'s monthly maintenance, backups and security checks running without a break, please let us know if you would like to renew.\n\nRegards,\nSiam Computing';
+    try { await navigator.clipboard.writeText(txt); n.textContent = 'Copied.'; } catch (e) { n.textContent = 'Could not copy. Select and copy it manually.'; }
+    return;
+  }
   if (act === 'backup') return backupAll();
   if (act === 'signin') {
     const m = $('#loginmsg'); m.className = 'msg'; m.textContent = 'Opening Google sign-in...';

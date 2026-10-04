@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { parseDur, fmtDur, hoursFor, carryForward, genSummary, makeModel, addMonth, buildDocxZip, buildPdfDoc } from '../public/js/core.js';
+import { parseDur, fmtDur, hoursFor, carryForward, amcState, monthAfterAmc, genSummary, makeModel, addMonth, buildDocxZip, buildPdfDoc } from '../public/js/core.js';
 
 const AMC = m => ({ label: 'AMC Activities', kind: 'amc', mins: m });
 const rep = (month, work) => ({ month, work, acts: [{ name: 'Website Backup', status: 'done', remark: '' }], summary: 'x' });
@@ -101,4 +101,14 @@ test('Word and PDF carry the Siam letterhead and watermark', async () => {
   assert.match(await zip.file('word/_rels/header1.xml.rels').async('string'), /siam-watermark\.png/);
   const pdf = buildPdfDoc(client, models, jsPDF, autoTable, assets);
   assert.ok(pdf.output('arraybuffer').byteLength > assets.logo.length);
+});
+
+test('AMC end date blocks later months and warns in the last 3 months', () => {
+  const c = { amcEnd: '2026-11-08' };
+  assert.deepEqual(amcState(c, new Date(2026, 7, 8)), { ended: false, days: 92, warn: true });   // 8 Aug: exactly 3 months out
+  assert.equal(amcState(c, new Date(2026, 7, 7)).warn, false);
+  assert.equal(amcState(c, new Date(2026, 10, 8)).ended, false);                                  // last day still valid
+  assert.equal(amcState(c, new Date(2026, 10, 9)).ended, true);
+  assert.equal(monthAfterAmc(c, '2026-11'), false);                                               // the final month can be reported
+  assert.equal(monthAfterAmc(c, '2026-12'), true);
 });
