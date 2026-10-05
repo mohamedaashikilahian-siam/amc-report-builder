@@ -49,7 +49,7 @@ function carryForward(client, list, month) {
   if (!before.length) return { last: null, start: client.allocMins, gap: 0 };
   const last = before[before.length - 1];
   const gap = monthDiff(last.month, month) - 1;
-  return { last: last.month, figures: hoursFor(client, list, last.month), start: hoursFor(client, list, month).prev, gap };
+  return { last: last.month, skipped: !!last.skipped, skipReason: last.skipReason || '', figures: hoursFor(client, list, last.month), start: hoursFor(client, list, month).prev, gap };
 }
 function monthDiff(a, b) { const x = a.split('-').map(Number), y = b.split('-').map(Number); return (y[0] - x[0]) * 12 + (y[1] - x[1]); }
 /* AMC contract status as of `today` (a Date). warn = inside the last 3 months. A report is allowed for the month the AMC ends in, not after it. */
@@ -68,7 +68,7 @@ function usedText(work) {
 }
 function historyRows(list, month) {
   const rows = [];
-  list.filter(r => r.month <= month).forEach(r => r.work.forEach(w => { if (w.mins > 0) rows.push([monthLabel(r.month), w.label, fmtDur(w.mins)]); }));
+  list.filter(r => r.month <= month).forEach(r => r.skipped ? rows.push([monthLabel(r.month), 'Skipped' + (r.skipReason ? ': ' + r.skipReason : ''), '0 mins']) : r.work.forEach(w => { if (w.mins > 0) rows.push([monthLabel(r.month), w.label, fmtDur(w.mins)]); }));
   return rows;
 }
 

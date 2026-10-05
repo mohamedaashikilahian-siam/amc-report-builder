@@ -22,7 +22,8 @@ function formDoc() {
 }
 function listWithCurrent() {
   const l = clientReports(S.clientId).filter(r => r.month !== S.month);
-  if (monthRe.test(S.month)) l.push(formDoc());
+  const sv = S.reports[S.clientId + '_' + S.month];
+  if (sv && sv.skipped) l.push(sv); else if (monthRe.test(S.month)) l.push(formDoc());
   return l.sort((a, b) => a.month < b.month ? -1 : 1);
 }
 
@@ -35,7 +36,7 @@ function loadForm() {
     S.work = saved.work.map(w => ({ label: w.label, kind: w.kind, dur: shortDur(w.mins) }));
     S.summary = saved.summary; S.edited = !!saved.edited;
   } else {
-    const before = clientReports(c.id).filter(r => r.month < S.month);
+    const before = clientReports(c.id).filter(r => r.month < S.month && !r.skipped);
     const prev = before.length ? before[before.length - 1] : null;
     S.acts = c.activities.map(n => { const p = prev && prev.acts.find(a => a.name === n); return { name: n, status: p ? p.status : 'done', remark: p ? p.remark : '' }; });
     S.work = [{ label: 'AMC Activities', kind: 'amc', dur: shortDur(c.monthlyMins || 0) }];
@@ -133,9 +134,12 @@ function renderForm() {
   const banner = st.ended ? '<section class="panel amcbox bad"><b>This AMC ended on ' + esc(fmtDate(c.amcEnd)) + '.</b> New reports cannot be created after the AMC period' + (blocked ? ', so ' + esc(monthLabel(S.month)) + ' is locked. Pick an earlier month to view or download its report.' : '. Earlier months can still be opened and downloaded.') + '</section>'
     : blocked ? '<section class="panel amcbox bad"><b>' + esc(monthLabel(S.month)) + ' is after the AMC period ended (' + esc(fmtDate(c.amcEnd)) + ').</b> Reports cannot be created for it. Pick an earlier month.</section>'
     : st.warn ? '<section class="panel amcbox warn"><b>AMC ends on ' + esc(fmtDate(c.amcEnd)) + ' (' + st.days + (st.days === 1 ? ' day' : ' days') + ' left).</b> Let ' + esc(c.contact) + ' know about the renewal.<div class="row" style="margin-top:8px"><button type="button" class="btn small" data-act="copy-notice">Copy a message for the client</button><span class="hint" style="margin:0" id="noticemsg"></span></div></section>' : '';
+  const sv = S.reports[c.id + '_' + S.month], skipped = !!(sv && sv.skipped);
+  const skipPanel = skipped ? '<section class="panel"><h2>Month skipped</h2><p style="margin:0"><b>' + esc(monthLabel(S.month)) + ' was skipped</b>' + (sv.skipReason ? ': ' + esc(sv.skipReason) : '') + '. No hours were used and no report is made for it. It still shows in later reports\' history.</p><div class="row" style="margin-top:10px"><button type="button" class="btn" data-act="unskip">Undo skip and write the report</button></div><p class="msg" id="msg"></p></section>' : '';
+  const skipOffer = !sv ? '<section class="panel"><h2>Skip this month</h2><p class="hint" style="margin:0 0 8px">Use this when the maintenance could not be done (for example the client could not share an OTP). No hours are counted and no report is created.</p><div class="row"><input type="text" id="skipReason" class="grow" placeholder="Reason, e.g. Client unavailable to share the OTP"><button type="button" class="btn" data-act="skip-month"' + off + '>Skip ' + esc(monthLabel(S.month)) + '</button></div></section>' : '';
   el.innerHTML = banner +
     '<section class="panel"><h2>Report month</h2><div class="row"><label class="f grow" style="max-width:220px">Month<input type="month" id="month" value="' + esc(S.month) + '"></label><span id="savedpill"></span></div>' +
-    '<p class="hint">Opens on the next month this client has no saved report for.</p><div id="carry"></div></section>' +
+    '<p class="hint">Opens on the next month this client has no saved report for.</p><div id="carry"></div></section>' + (skipped ? skipPanel : skipOffer +
     '<section class="panel"><h2>Maintenance activities</h2><div class="acts">' + S.acts.map((a, i) =>
       '<div class="act"><span class="nm">' + esc(a.name) + '</span>' + seg(a, i) + '<input type="text" data-k="remark" data-i="' + i + '" value="' + esc(a.remark) + '" placeholder="Remarks (e.g. Expiry: Oct 10, 2026)" aria-label="Remarks for ' + esc(a.name) + '"><button type="button" class="xbtn rm" data-act="rm-act" data-i="' + i + '" aria-label="Remove ' + esc(a.name) + ' from this report" title="Remove from this report">×</button>' +
       (() => { const f = expiryFlag(a.remark); return f ? '<span class="flag ' + f.cls + '">' + esc(f.t) + '</span>' : ''; })() + '</div>').join('') + '</div>' +
@@ -148,8 +152,8 @@ function renderForm() {
     '<section class="panel"><h2>Summary</h2><textarea id="summary" rows="5" aria-label="Summary text"></textarea><div class="row" style="margin-top:8px"><button type="button" class="btn small" data-act="regen">Rewrite from activities</button><span class="hint" style="margin:0">Edits you make here are kept until you rewrite.</span></div></section>' +
     '<section class="panel"><h2>Save and download</h2><div class="row"><button type="button" class="btn primary" data-act="save-report"' + off + '>Save report</button><button type="button" class="btn" data-act="export" data-kind="docx"' + off + '>Download Word</button><button type="button" class="btn" data-act="export" data-kind="pdf"' + off + '>Download PDF</button>' +
     '<span style="flex:1"></span><button type="button" class="btn danger small" data-act="del-report" id="delrep" hidden>Delete saved report</button></div><p class="msg" id="msg"></p>' +
-    '<p class="hint">Saving adds this month to the client\'s balance and history, so next month starts from the right figure.</p></section>';
-  $('#summary').value = S.summary;
+    '<p class="hint">Saving adds this month to the client\'s balance and history, so next month starts from the right figure.</p></section>');
+  if ($('#summary')) $('#summary').value = S.summary;
   renderLive();
 }
 
@@ -174,7 +178,7 @@ function renderLive() {
       if (!k.last) cf.innerHTML = '<p class="hint">No earlier report saved for this client. ' + esc(monthLabel(S.month)) + ' starts from the full AMC allocation of ' + esc(fmtDur(k.start)) + '.</p>';
       else {
         const f = k.figures;
-        cf.innerHTML = '<div class="carry"><h2 style="margin:12px 0 0">Carried forward from ' + esc(monthLabel(k.last)) + '</h2><div class="calc">' +
+        cf.innerHTML = '<div class="carry"><h2 style="margin:12px 0 0">' + (k.skipped ? esc(monthLabel(k.last)) + ' was skipped' + (k.skipReason ? ' (' + esc(k.skipReason) + ')' : '') + '. Balance carried forward' : 'Carried forward from ' + esc(monthLabel(k.last))) + '</h2><div class="calc">' +
           [['Previous balance', f.prev], ['Used that month', f.used], ['Total consumed', f.consumed], ['Remaining', f.remaining, 1]].map(x => '<div class="' + (x[2] ? 'hi' : '') + '"><small>' + x[0] + '</small><strong>' + esc(fmtDur(x[1])) + '</strong></div>').join('') + '</div>' +
           '<p class="hint">' + esc(monthLabel(S.month)) + ' opens with a previous balance of <b>' + esc(fmtDur(k.start)) + '</b>.</p>' +
           (k.gap > 0 ? '<span class="flag warn">⚠ ' + k.gap + ' month' + (k.gap === 1 ? '' : 's') + ' between ' + esc(monthLabel(k.last)) + ' and ' + esc(monthLabel(S.month)) + ' ' + (k.gap === 1 ? 'has' : 'have') + ' no saved report, so ' + (k.gap === 1 ? 'its' : 'their') + ' hours are not counted.</span>' : '') + '</div>';
@@ -185,7 +189,7 @@ function renderLive() {
   if (sp) {
     const saved = S.reports[c.id + '_' + S.month];
     const same = saved && JSON.stringify([saved.acts, saved.work, saved.summary]) === JSON.stringify([formDoc().acts, formDoc().work, formDoc().summary]);
-    sp.innerHTML = !valid ? '<span class="pill bad">Pick a month</span>' : same ? '<span class="pill">Saved</span>' : saved ? '<span class="pill warn">Unsaved changes</span>' : '<span class="pill warn">Not saved yet</span>';
+    sp.innerHTML = saved && saved.skipped ? '<span class="pill warn">Skipped</span>' : !valid ? '<span class="pill bad">Pick a month</span>' : same ? '<span class="pill">Saved</span>' : saved ? '<span class="pill warn">Unsaved changes</span>' : '<span class="pill warn">Not saved yet</span>';
     const d = $('#delrep'); if (d) { d.hidden = !saved; d.textContent = S.confirm === 'report' ? 'Click again to delete' : 'Delete saved report'; }
   }
   renderPreview();
@@ -203,11 +207,11 @@ function modelsToShow() {
   const c = curClient(); if (!c || !monthRe.test(S.month)) return [];
   const l = listWithCurrent();
   const months = S.includePrev ? l.map(r => r.month).filter(x => x <= S.month) : [S.month];
-  return months.map(mo => makeModel(c, l, mo));
+  return months.filter(mo => !l.find(r => r.month === mo).skipped).map(mo => makeModel(c, l, mo));
 }
 function renderPreview() {
   const ms = modelsToShow();
-  $('#sheets').innerHTML = ms.length ? ms.map(sheetHTML).join('') : '<div class="empty">The report preview appears here once you pick a client and a month.</div>';
+  $('#sheets').innerHTML = ms.length ? ms.map(sheetHTML).join('') : '<div class="empty">' + (S.reports[S.clientId + '_' + S.month] && S.reports[S.clientId + '_' + S.month].skipped ? monthLabel(S.month) + ' is skipped, so there is no report to preview.' : 'The report preview appears here once you pick a client and a month.') + '</div>';
 }
 function renderAll() {
   $('#prev').checked = S.includePrev;
@@ -254,6 +258,7 @@ async function restoreAll(file) {
     setTop('Restored ' + n + ' records.', '');
   } catch (e) { setTop('Restore failed: ' + (e.message || e), 'bad'); }
 }
+const setTopLocal = t => setTop(t, 'bad');
 function setTop(t, cls) { const el = $('#topmsg'); el.textContent = t; el.className = 'msg ' + (cls || ''); }
 
 /* ---------- events ---------- */
@@ -292,6 +297,18 @@ document.addEventListener('click', async ev => {
   if (act === 'del-report') {
     if (S.confirm !== 'report') { S.confirm = 'report'; return renderLive(); }
     S.confirm = ''; try { await removeReport(S.clientId + '_' + S.month); setMsg('Deleted the saved report. The form still holds your entries.', ''); renderClients(); renderLive(); } catch (e) { setMsg('Could not delete.', 'bad'); }
+    return;
+  }
+  if (act === 'skip-month') {
+    const c = curClient(); if (!monthRe.test(S.month)) return setMsg('Pick a month first.', 'bad');
+    if (monthAfterAmc(c, S.month)) return setTopLocal('The AMC ended on ' + fmtDate(c.amcEnd) + '.');
+    const reason = ($('#skipReason').value || '').trim();
+    try { await putReport({ clientId: c.id, month: S.month, skipped: true, skipReason: reason, acts: [], work: [], summary: '', edited: false }); S.edit = null; loadForm(); renderAll(); }
+    catch (e) { setTopLocal('Could not skip: ' + ((e && (e.message || e.code)) || 'unknown error')); }
+    return;
+  }
+  if (act === 'unskip') {
+    try { await removeReport(S.clientId + '_' + S.month); loadForm(); renderAll(); } catch (e) { setMsg('Could not undo: ' + ((e && (e.message || e.code)) || 'unknown error'), 'bad'); }
     return;
   }
   if (act === 'export') return doExport(b.dataset.kind);

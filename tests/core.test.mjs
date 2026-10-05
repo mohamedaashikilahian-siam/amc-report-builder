@@ -112,3 +112,14 @@ test('AMC end date blocks later months and warns in the last 3 months', () => {
   assert.equal(monthAfterAmc(c, '2026-11'), false);                                               // the final month can be reported
   assert.equal(monthAfterAmc(c, '2026-12'), true);
 });
+
+test('a skipped month uses no hours, shows in history and keeps the balance moving', () => {
+  const c = { allocMins: 480 };
+  const skip = { month: '2026-08', skipped: true, skipReason: 'Client could not share the OTP', acts: [], work: [], summary: '' };
+  const l = [rep('2026-07', [AMC(50)]), skip, rep('2026-09', [AMC(50)])];
+  assert.deepEqual(hoursFor(c, l, '2026-09'), { prev: 430, used: 50, consumed: 100, remaining: 380 });
+  const k = carryForward(c, l.slice(0, 2), '2026-09');
+  assert.equal(k.skipped, true);
+  assert.equal(k.gap, 0);
+  assert.deepEqual(makeModel({ ...c, contact: 'A', url: 'x.com', amcStart: '2026-05-08', amcEnd: '2027-05-08' }, l, '2026-09').history[1], ['August 2026', 'Skipped: Client could not share the OTP', '0 mins']);
+});
