@@ -89,9 +89,9 @@ input.err { border-color: var(--bad); background: var(--bad-soft); }
 @media (min-width: 980px) { .sticky { position: sticky; top: 12px; } }
 .sheets { display: flex; flex-direction: column; gap: 16px; }
 .sheet { background: var(--paper); color: var(--paper-ink); font-family: Arial, Helvetica, sans-serif; font-size: 13px; padding: 36px 40px; border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 24px rgba(0,0,0,.12); min-width: 0; overflow-x: auto; }
-.sheet { background-image: url(../img/siam-watermark.png); background-repeat: no-repeat; background-position: center 42%; background-size: 38%; }
+.sheet { background-image: var(--wm); background-repeat: no-repeat; background-position: center 42%; background-size: 38%; }
 .sheet .lh { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin: -14px 0 16px -14px; font-size: 11px; text-align: right; }
-.sheet .lh img { height: 56px; width: auto; }
+.sheet .lh .logo { width: 96px; height: 56px; background: var(--logo) left center / contain no-repeat; flex: none; }
 .sheet .lh a { color: #1155CC; }
 .sheet .kick { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--paper-muted); }
 .sheet h3 { font-size: 32px; margin: 2px 0 14px; letter-spacing: -.01em; }
