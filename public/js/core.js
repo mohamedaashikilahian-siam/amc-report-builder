@@ -109,7 +109,7 @@ function makeModel(client, list, month) {
     info: [['Client Name', client.contact], ['Website URL', client.url], ['Reporting Period', monthLabel(month)], ['AMC Period', fmtDate(client.amcStart) + ' - ' + fmtDate(client.amcEnd)]],
     acts: rep.acts,
     hours: [['Previous Balance', fmtDur(h.prev)], ['Hours Used This Month', usedText(rep.work)], ['Total Hours Consumed', fmtDur(h.consumed)], ['Remaining AMC Hours', fmtDur(h.remaining)]],
-    history: hist.length > 1 ? hist : null,
+    history: hist.length ? hist : null,
     summary: rep.summary,
     remaining: h.remaining
   };
@@ -117,7 +117,7 @@ function makeModel(client, list, month) {
 
 /* ---------- DOCX (hand-built WordprocessingML in a zip) ---------- */
 const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
-const C = { ink: '1B1B1B', muted: '6E7A86', line: 'BFC8D2', head: 'E8EDF2', hi: 'E3F1F0' };
+const C = { ink: '2C2C2C', muted: '6E7A86', line: 'CCCCCC', head: 'C0392B', zebra: 'F5F5F5', brand: 'C0392B' };
 
 function rPr(o) {
   o = o || {};
@@ -136,7 +136,7 @@ function cell(inner, w, o) {
   o = o || {};
   return '<w:tc><w:tcPr><w:tcW w:w="' + w + '" w:type="dxa"/>' + (o.fill ? '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fill + '"/>' : '') + '<w:vAlign w:val="center"/></w:tcPr>' + inner + '</w:tc>';
 }
-const cellP = (text, w, o) => { o = o || {}; return cell(para(run(text, { bold: o.bold, font: o.font, size: o.size }), { jc: o.jc, before: 70, after: 70 }), w, o); };
+const cellP = (text, w, o) => { o = o || {}; return cell(para(run(text, { bold: o.bold, font: o.font, size: o.size || 18, color: o.color }), { jc: o.jc, before: 70, after: 70 }), w, o); };
 function table(widths, rows, headRows) {
   const b = n => '<w:' + n + ' w:val="single" w:sz="4" w:space="0" w:color="' + C.line + '"/>';
   const total = widths.reduce((a, x) => a + x, 0);
@@ -146,40 +146,40 @@ function table(widths, rows, headRows) {
     rows.map((r, i) => '<w:tr><w:trPr><w:cantSplit/>' + (i < (headRows || 0) ? '<w:tblHeader/>' : '') + '</w:trPr>' + r + '</w:tr>').join('') + '</w:tbl>';
 }
 const SYM = 'Segoe UI Symbol';
+/* Section heading: brand red, bold, with a red rule underneath, as in the Siam report template */
+const h2d = (t, o) => '<w:p><w:pPr><w:keepNext/>' + (o && o.pageBreak ? '<w:pageBreakBefore/>' : '') + '<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="2" w:color="' + C.brand + '"/></w:pBdr><w:spacing w:before="' + ((o && o.pageBreak) ? 0 : 900) + '" w:after="260"/></w:pPr>' + run(t, { bold: true, size: 24, color: C.brand }) + '</w:p>';
+const hdrCell = (t, w, jc) => cellP(t, w, { bold: true, fill: C.head, color: 'FFFFFF', jc: jc });
+const zebra = i => i % 2 ? C.zebra : null;
 function sectionDocx(m) {
   const x = [];
-  x.push(para(run('MONTHLY AMC REPORT', { bold: true, size: 16, color: C.muted, spacing: 30 }), { after: 40 }));
-  x.push(para(run(m.title), { style: 'Heading1', after: 120 }));
-  x.push(para(run('Client Information'), { style: 'Heading2', keepNext: true, before: 200, after: 100 }));
-  const ci = m.info, W4 = [1600, 2913, 1600, 2913];
-  x.push(table(W4, [
-    cellP(ci[0][0], 1600, { bold: true, fill: C.head }) + cellP(ci[0][1], 2913) + cellP(ci[1][0], 1600, { bold: true, fill: C.head }) + cellP(ci[1][1], 2913),
-    cellP(ci[2][0], 1600, { bold: true, fill: C.head }) + cellP(ci[2][1], 2913) + cellP(ci[3][0], 1600, { bold: true, fill: C.head }) + cellP(ci[3][1], 2913)
-  ]));
-  x.push(para(run('Maintenance Activities'), { style: 'Heading2', keepNext: true, before: 280, after: 100 }));
-  const WA = [2700, 1000, 1200, 4126];
-  const head = ['Activity','Done','Not Done','Remarks'].map((t, i) => cellP(t, WA[i], { bold: true, fill: C.head, jc: i === 0 || i === 3 ? 'left' : 'center' })).join('');
-  const body = m.acts.map(a =>
-    cellP(a.name, WA[0]) +
-    cellP(a.status === 'done' ? '✔' : '☐', WA[1], { jc: 'center', font: SYM }) +
-    cellP(a.status === 'notdone' ? '✔' : '☐', WA[2], { jc: 'center', font: SYM }) +
-    cellP(a.remark || '', WA[3]));
-  x.push(table(WA, [head].concat(body), 1));
-  x.push(para(run('AMC Hours Utilization'), { style: 'Heading2', keepNext: true, before: 280, after: 100 }));
-  const WH = [3800, 5226];
-  const hr = [['Item','Hours']].concat(m.hours).map((r, i, arr) => {
-    const last = i === arr.length - 1, hd = i === 0;
-    return cellP(r[0], WH[0], { bold: hd || last, fill: hd ? C.head : last ? C.hi : null }) + cellP(r[1], WH[1], { bold: hd || last, fill: hd ? C.head : last ? C.hi : null });
+  x.push('<w:p><w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="8" w:space="2" w:color="' + C.brand + '"/></w:pBdr><w:spacing w:before="400" w:after="200"/></w:pPr>' + run('Client Information', { bold: true, size: 24, color: C.brand }) + '</w:p>');
+  const ci = m.info, WI = [4513, 4513];
+  const kv = (k, v) => cell(para(run(k + ': ', { bold: true, size: 20 }) + run(v, { size: 20 }), { before: 160, after: 40 }), 4513).replace('<w:vAlign', '<w:tcBorders><w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/></w:tcBorders><w:vAlign');
+  const none = ['top','left','bottom','right','insideH','insideV'].map(n => '<w:' + n + ' w:val="nil"/>').join('');
+  x.push('<w:tbl><w:tblPr><w:tblW w:w="9026" w:type="dxa"/><w:tblBorders>' + none + '</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="110" w:type="dxa"/><w:right w:w="110" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="4513"/><w:gridCol w:w="4513"/></w:tblGrid>' +
+    '<w:tr>' + kv(ci[0][0], ci[0][1]) + kv(ci[1][0], ci[1][1]) + '</w:tr><w:tr>' + kv(ci[2][0], ci[2][1]) + kv(ci[3][0], ci[3][1]) + '</w:tr></w:tbl>');
+  x.push(h2d('Maintenance Activities'));
+  const WA = [3800, 960, 960, 3306];
+  const head = ['Activity','Done','Not Done','Remarks'].map((t, i) => hdrCell(t, WA[i], i === 1 || i === 2 ? 'center' : 'left')).join('');
+  const body = m.acts.map((a, i) => {
+    const f = zebra(i);
+    return cellP(a.name, WA[0], { fill: f }) +
+      cellP(a.status === 'done' ? '✔' : '☐', WA[1], { jc: 'center', font: SYM, fill: f, color: a.status === 'done' ? '2E9E4F' : '999999' }) +
+      cellP(a.status === 'notdone' ? '✘' : '☐', WA[2], { jc: 'center', font: SYM, fill: f, color: a.status === 'notdone' ? C.brand : '999999' }) +
+      cellP(a.remark || '', WA[3], { fill: f });
   });
-  x.push(table(WH, hr, 1));
+  x.push(table(WA, [head].concat(body), 1));
+  x.push(h2d('AMC Hours Utilization'));
+  const WH = [6000, 3026];
+  x.push(table(WH, [hdrCell('Item', WH[0]) + hdrCell('Hours', WH[1])].concat(m.hours.map((r, i) => cellP(r[0], WH[0], { fill: zebra(i) }) + cellP(r[1], WH[1], { fill: zebra(i) }))), 1));
+  let first = true;
   if (m.history) {
-    x.push(para(run('Activity History'), { style: 'Heading2', keepNext: true, before: 280, after: 100 }));
-    const WY = [2400, 4126, 2500];
-    const rows = [['Month','Work Done','Hours Used']].concat(m.history).map((r, i) => r.map((t, j) => cellP(t, WY[j], { bold: i === 0, fill: i === 0 ? C.head : null, jc: j === 2 ? 'center' : 'left' })).join(''));
-    x.push(table(WY, rows, 1));
+    x.push(h2d('Activity History', { pageBreak: true })); first = false;
+    const WY = [2000, 5026, 2000];
+    x.push(table(WY, [hdrCell('Month', WY[0]) + hdrCell('Work Done', WY[1]) + hdrCell('Hours Used', WY[2])].concat(m.history.map((r, i) => r.map((t, j) => cellP(t, WY[j], { fill: zebra(i) })).join(''))), 1));
   }
-  x.push(para(run('Summary'), { style: 'Heading2', keepNext: true, before: 280, after: 100 }));
-  x.push(para(run(m.summary), { after: 0 }));
+  x.push(h2d('Summary', { pageBreak: first }));
+  x.push(para(run(m.summary, { size: 20 }), { after: 0, jc: 'both' }));
   return x.join('');
 }
 const EMU = 12700;
@@ -268,57 +268,71 @@ function buildPdfDoc(client, models, jsPDFCtor, autoTableFn, assets) {
   const newPage = () => { doc.addPage(); dress(); };
   dress();
   const at = o => (typeof doc.autoTable === 'function' ? doc.autoTable(o) : autoTableFn(doc, o));
-  const W = doc.internal.pageSize.getWidth(), M = 72, TOP = 104, cw = W - 2*M;
-  const INK = [27,27,27], HEAD = [232,237,242], LINE = [191,200,210], MUTED = [110,122,134], HI = [227,241,240];
-  const base = { theme: 'grid', margin: { left: M, right: M, top: TOP, bottom: 60 }, willDrawPage: dress, styles: { font: 'helvetica', fontSize: 9.5, textColor: INK, fillColor: false, lineColor: LINE, lineWidth: 0.6, cellPadding: { top: 5, bottom: 5, left: 8, right: 8 }, valign: 'middle' }, headStyles: { fillColor: HEAD, textColor: INK, fontStyle: 'bold' } };
+  const W = doc.internal.pageSize.getWidth(), M = 72, TOP = 104, Y0 = 160, cw = W - 2*M;
+  const INK = [44,44,44], BRAND = [192,57,43], ZEBRA = [245,245,245], LINE = [204,204,204], GREEN = [46,158,79], GREY = [153,153,153];
+  const base = { theme: 'grid', margin: { left: M, right: M, top: TOP, bottom: 60 }, willDrawPage: dress,
+    styles: { font: 'helvetica', fontSize: 9, textColor: INK, fillColor: false, lineColor: LINE, lineWidth: 0.5, cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }, valign: 'middle' },
+    headStyles: { fillColor: BRAND, textColor: [255,255,255], fontStyle: 'bold', lineColor: BRAND }, alternateRowStyles: { fillColor: ZEBRA } };
   models.forEach((m, mi) => {
     if (mi > 0) newPage();
-    let y = TOP;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-    doc.text('MONTHLY AMC REPORT', M, y + 8, { charSpace: 1.2 });
-    y += 30; doc.setFontSize(26); doc.setTextColor(INK[0], INK[1], INK[2]); doc.text(m.title, M, y); y += 26;
+    let y = Y0;
     const h2 = t => {
-      if (y > 740) { newPage(); y = TOP; }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(INK[0], INK[1], INK[2]); doc.text(t, M, y); y += 8;
+      if (y > 740) { newPage(); y = Y0; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(BRAND[0], BRAND[1], BRAND[2]); doc.text(t, M, y);
+      doc.setDrawColor(BRAND[0], BRAND[1], BRAND[2]); doc.setLineWidth(1); doc.line(M, y + 7, W - M, y + 7); y += 25;
     };
-    const after = () => { y = doc.lastAutoTable.finalY + 22; };
-    const ci = m.info;
+    const after = () => { y = doc.lastAutoTable.finalY + 52; };
+    /* Client information: "Label: value" pairs, each over a thin rule */
     h2('Client Information');
-    at(Object.assign({}, base, { startY: y, body: [[ci[0][0], ci[0][1], ci[1][0], ci[1][1]], [ci[2][0], ci[2][1], ci[3][0], ci[3][1]]],
-      columnStyles: { 0: { cellWidth: 92, fontStyle: 'bold', fillColor: HEAD }, 1: { cellWidth: (cw - 184) / 2 }, 2: { cellWidth: 92, fontStyle: 'bold', fillColor: HEAD }, 3: { cellWidth: (cw - 184) / 2 } } }));
-    after();
+    const colW = (cw - 20) / 2;
+    [[m.info[0], m.info[1]], [m.info[2], m.info[3]]].forEach((row, ri) => {
+      row.forEach((kv, ci) => {
+        const x = M + ci * (colW + 20), by = y + 12 + ri * 31;
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        let fs = 10; doc.setFont('helvetica', 'bold'); doc.setFontSize(fs); const lab = kv[0] + ': ';
+        const fit = () => { doc.setFontSize(fs); doc.setFont('helvetica', 'bold'); const lw = doc.getTextWidth(lab); doc.setFont('helvetica', 'normal'); return lw + doc.getTextWidth(kv[1]); };
+        while (fit() > colW - 8 && fs > 7) fs -= 0.5; fit();
+        doc.setFont('helvetica', 'bold'); doc.text(lab, x + 6, by); const lw = doc.getTextWidth(lab);
+        doc.setFont('helvetica', 'normal'); doc.text(kv[1], x + 6 + lw, by);
+        doc.setDrawColor(GREY[0], GREY[1], GREY[2]); doc.setLineWidth(0.4); doc.line(x + 6, by + 6, x + colW, by + 6);
+      });
+    });
+    y += 12 + 31 + 40;
     h2('Maintenance Activities');
     at(Object.assign({}, base, { startY: y, head: [['Activity', 'Done', 'Not Done', 'Remarks']],
       body: m.acts.map(a => [a.name, '', '', a.remark || '']),
-      columnStyles: { 0: { cellWidth: 150 }, 1: { cellWidth: 52 }, 2: { cellWidth: 62 }, 3: { cellWidth: cw - 264 } },
+      columnStyles: { 0: { cellWidth: 190 }, 1: { cellWidth: 48 }, 2: { cellWidth: 48 }, 3: { cellWidth: cw - 286 } },
       didParseCell: d => { if (d.section === 'head' && (d.column.index === 1 || d.column.index === 2)) d.cell.styles.halign = 'center'; },
       didDrawCell: d => {
         if (d.section === 'body' && (d.column.index === 1 || d.column.index === 2)) {
           const st = m.acts[d.row.index].status;
-          const on = (d.column.index === 1 && st === 'done') || (d.column.index === 2 && st === 'notdone');
-          const cx = d.cell.x + d.cell.width / 2, cy = d.cell.y + d.cell.height / 2, s = 11;
-          doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.8); doc.rect(cx - s/2, cy - s/2, s, s);
-          if (on) { doc.setLineWidth(1.5); doc.line(cx - 3.5, cy, cx - 1, cy + 3); doc.line(cx - 1, cy + 3, cx + 4, cy - 3.5); }
+          const done = d.column.index === 1, on = (done && st === 'done') || (!done && st === 'notdone');
+          const cx = d.cell.x + d.cell.width / 2, cy = d.cell.y + d.cell.height / 2, s = 10;
+          if (!on) { doc.setDrawColor(GREY[0], GREY[1], GREY[2]); doc.setLineWidth(0.7); doc.rect(cx - s/2, cy - s/2, s, s); return; }
+          const col = done ? GREEN : BRAND;
+          doc.setFillColor(col[0], col[1], col[2]); doc.rect(cx - s/2, cy - s/2, s, s, 'F');
+          doc.setDrawColor(255, 255, 255); doc.setLineWidth(1.3);
+          if (done) { doc.line(cx - 2.8, cy + 0.2, cx - 0.8, cy + 2.4); doc.line(cx - 0.8, cy + 2.4, cx + 3, cy - 2.4); }
+          else { doc.line(cx - 2.5, cy - 2.5, cx + 2.5, cy + 2.5); doc.line(cx + 2.5, cy - 2.5, cx - 2.5, cy + 2.5); }
         }
       } }));
     after();
     h2('AMC Hours Utilization');
-    at(Object.assign({}, base, { startY: y, head: [['Item', 'Hours']], body: m.hours,
-      columnStyles: { 0: { cellWidth: 200 }, 1: { cellWidth: cw - 200 } },
-      didParseCell: d => { if (d.section === 'body' && d.row.index === m.hours.length - 1) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = HI; } } }));
-    after();
+    at(Object.assign({}, base, { startY: y, head: [['Item', 'Hours']], body: m.hours, columnStyles: { 0: { cellWidth: 300 }, 1: { cellWidth: cw - 300 } } }));
+    /* Page two: history and summary */
+    newPage(); y = Y0;
     if (m.history) {
       h2('Activity History');
       at(Object.assign({}, base, { startY: y, head: [['Month', 'Work Done', 'Hours Used']], body: m.history,
-        columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: cw - 250 }, 2: { cellWidth: 130 } } }));
+        columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: cw - 200 }, 2: { cellWidth: 100 } } }));
       after();
     }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     const lines = doc.splitTextToSize(m.summary, cw);
-    if (y + 30 + lines.length * 15 > doc.internal.pageSize.getHeight() - 60) { newPage(); y = TOP; }
-    h2('Summary');
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK[0], INK[1], INK[2]);
-    doc.text(lines, M, y + 8, { lineHeightFactor: 1.5 });
+    if (y + 30 + lines.length * 15 > doc.internal.pageSize.getHeight() - 60) { newPage(); y = Y0; }
+    h2('Summary'); y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+    doc.text(m.summary, M, y, { maxWidth: cw, align: 'justify', lineHeightFactor: 1.5 });
   });
   const n = doc.getNumberOfPages();
   for (let i = 1; n > 1 && i <= n; i++) {

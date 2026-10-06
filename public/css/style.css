@@ -5,7 +5,7 @@
   --accent: #0B6E6A; --accent-ink: #FFFFFF; --accent-soft: #D8EDEB;
   --warn: #8A5200; --warn-soft: #FBEACB; --bad: #9C2A2A; --bad-soft: #F6DBDB; --good: #1B7348;
   --field: #F6F8FA;
-  --paper: #FFFFFF; --paper-ink: #1B1B1B; --paper-muted: #6E7A86; --paper-line: #BFC8D2; --paper-head: #E8EDF2; --paper-hi: #E3F1F0;
+  --paper: #FFFFFF; --paper-ink: #2C2C2C; --brand: #C0392B; --paper-zebra: #F5F5F5; --paper-muted: #6E7A86; --paper-line: #CCCCCC; --paper-head: #E8EDF2; --paper-hi: #E3F1F0;
   --sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -89,9 +89,9 @@ input.err { border-color: var(--bad); background: var(--bad-soft); }
 @media (min-width: 980px) { .sticky { position: sticky; top: 12px; } }
 .sheets { display: flex; flex-direction: column; gap: 16px; }
 .sheet { background: var(--paper); color: var(--paper-ink); font-family: Arial, Helvetica, sans-serif; font-size: 13px; padding: 36px 40px; border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 24px rgba(0,0,0,.12); min-width: 0; overflow-x: auto; }
-.sheet { background-image: url(../img/siam-watermark.png); background-repeat: no-repeat; background-position: center 42%; background-size: 38%; }
+.sheet { background-image: var(--wm); background-repeat: no-repeat; background-position: center 42%; background-size: 38%; }
 .sheet .lh { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin: -14px 0 16px -14px; font-size: 11px; text-align: right; }
-.sheet .lh img { height: 56px; width: auto; }
+.sheet .lh .logo { width: 96px; height: 56px; background: var(--logo) left center / contain no-repeat; flex: none; }
 .sheet .lh a { color: #1155CC; }
 .sheet .kick { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--paper-muted); }
 .sheet h3 { font-size: 32px; margin: 2px 0 14px; letter-spacing: -.01em; }
@@ -117,3 +117,15 @@ html { background: var(--bg); }
 .amcbox.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 .amcbox.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Siam report styling in the preview */
+.sheet h4 { color: var(--brand); font-size: 14px; margin: 30px 0 14px; padding-bottom: 4px; border-bottom: 1.5px solid var(--brand); }
+.sheet .lh + h4 { margin-top: 18px; }
+.sheet th { background: var(--brand); color: #fff; }
+.sheet tr:nth-child(even) td { background: var(--paper-zebra); }
+.sheet .tick.yes { color: #2E9E4F; } .sheet .tick.no { color: var(--brand); }
+.sheet .kvs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+.sheet .kv { padding: 0 0 4px 4px; border-bottom: 1px solid #999; overflow-wrap: anywhere; }
+.sheet .pgbreak { margin: 28px -40px 0; border-top: 1px dashed var(--paper-line); color: var(--paper-muted); font-size: 10px; text-align: center; }
+.sheet p { text-align: justify; }
+@media (max-width: 640px) { .sheet .kvs { grid-template-columns: 1fr; } }

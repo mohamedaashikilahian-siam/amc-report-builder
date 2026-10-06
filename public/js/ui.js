@@ -1,6 +1,9 @@
 /* ===== AMC Report Builder: interface ===== */
 import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, amcState, monthAfterAmc, fmtDate, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
 import { createStore } from './store.js';
+import { LOGO_B64, WATERMARK_B64 } from './brand.js';
+document.documentElement.style.setProperty('--wm', 'url(data:image/png;base64,' + WATERMARK_B64 + ')');
+document.documentElement.style.setProperty('--logo', 'url(data:image/png;base64,' + LOGO_B64 + ')');
 const $ = s => document.querySelector(s);
 const S = { clients: [], reports: {}, clientId: null, month: '', acts: [], work: [], summary: '', edited: false, includePrev: false, edit: null, confirm: '', msg: '', msgCls: '', loaded: { c: false, r: false } };
 let store = null, unsubs = [], me = null;
@@ -195,13 +198,14 @@ function renderLive() {
   renderPreview();
 }
 function sheetHTML(m) {
-  const ci = m.info;
-  return '<article class="sheet"><div class="lh"><img src="img/siam-logo.png" alt="Siam Computing"><div><a href="https://siamcomputing.com" target="_blank" rel="noopener">https://siamcomputing.com</a><br><i>We don\'t sell code, we deliver clarity.</i></div></div><div class="kick">MONTHLY AMC REPORT</div><h3>' + esc(m.title) + '</h3>' +
-    '<h4>Client Information</h4><table><tr><td class="lbl">' + esc(ci[0][0]) + '</td><td>' + esc(ci[0][1]) + '</td><td class="lbl">' + esc(ci[1][0]) + '</td><td>' + esc(ci[1][1]) + '</td></tr><tr><td class="lbl">' + esc(ci[2][0]) + '</td><td>' + esc(ci[2][1]) + '</td><td class="lbl">' + esc(ci[3][0]) + '</td><td>' + esc(ci[3][1]) + '</td></tr></table>' +
-    '<h4>Maintenance Activities</h4><table><tr><th>Activity</th><th class="c">Done</th><th class="c">Not Done</th><th>Remarks</th></tr>' + m.acts.map(a => '<tr><td>' + esc(a.name) + '</td><td class="c tick">' + (a.status === 'done' ? '✔' : '☐') + '</td><td class="c tick">' + (a.status === 'notdone' ? '✔' : '☐') + '</td><td>' + esc(a.remark) + '</td></tr>').join('') + '</table>' +
-    '<h4>AMC Hours Utilization</h4><table><tr><th>Item</th><th>Hours</th></tr>' + m.hours.map((r, i) => '<tr' + (i === m.hours.length - 1 ? ' class="hi"' : '') + '><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>' +
-    (m.history ? '<h4>Activity History</h4><table><tr><th>Month</th><th>Work Done</th><th class="c">Hours Used</th></tr>' + m.history.map(r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td class="c">' + esc(r[2]) + '</td></tr>').join('') + '</table>' : '') +
-    '<h4>Summary</h4><p>' + esc(m.summary) + '</p><div class="foot">' + esc(m.footer) + ' &nbsp;|&nbsp; Monthly AMC Report</div></article>';
+  const ci = m.info, kv = x => '<div class="kv"><b>' + esc(x[0]) + ':</b> ' + esc(x[1]) + '</div>';
+  const hours = '<h4>AMC Hours Utilization</h4><table><tr><th>Item</th><th>Hours</th></tr>' + m.hours.map(r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
+  return '<article class="sheet"><div class="lh"><div class="logo" role="img" aria-label="Siam Computing"></div><div><a href="https://siamcomputing.com" target="_blank" rel="noopener">https://siamcomputing.com</a><br><i>We don\'t sell code, we deliver clarity.</i></div></div>' +
+    '<h4>Client Information</h4><div class="kvs">' + ci.map(kv).join('') + '</div>' +
+    '<h4>Maintenance Activities</h4><table><tr><th>Activity</th><th class="c">Done</th><th class="c">Not Done</th><th>Remarks</th></tr>' + m.acts.map(a => '<tr><td>' + esc(a.name) + '</td><td class="c tick ' + (a.status === 'done' ? 'yes' : '') + '">' + (a.status === 'done' ? '✔' : '☐') + '</td><td class="c tick ' + (a.status === 'notdone' ? 'no' : '') + '">' + (a.status === 'notdone' ? '✘' : '☐') + '</td><td>' + esc(a.remark) + '</td></tr>').join('') + '</table>' + hours +
+    '<div class="pgbreak">Page 2</div>' +
+    (m.history ? '<h4>Activity History</h4><table><tr><th>Month</th><th>Work Done</th><th>Hours Used</th></tr>' + m.history.map(r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>').join('') + '</table>' : '') +
+    '<h4>Summary</h4><p>' + esc(m.summary) + '</p></article>';
 }
 function modelsToShow() {
   const c = curClient(); if (!c || !monthRe.test(S.month)) return [];
@@ -220,13 +224,8 @@ function renderAll() {
 }
 
 /* ---------- export ---------- */
-let assetsP = null;
-const loadAssets = () => assetsP || (assetsP = Promise.all(['siam-logo', 'siam-watermark'].map(n => fetch('img/' + n + '.png').then(r => { if (!r.ok) throw new Error('Missing img/' + n + '.png'); return r.arrayBuffer(); })))
-  .then(([logo, watermark]) => ({ logo: new Uint8Array(logo), watermark: new Uint8Array(watermark) })).catch(e => { assetsP = null; throw e; }));
-function saveBlob(blob, name) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
+const bytes = b64 => Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+const loadAssets = async () => ({ logo: bytes(LOGO_B64), watermark: bytes(WATERMARK_B64) });
 async function doExport(kind) {
   const c = curClient(); if (!c || !monthRe.test(S.month)) return setMsg('Pick a month first.', 'bad');
   if (monthAfterAmc(c, S.month)) return setMsg('The AMC ended on ' + fmtDate(c.amcEnd) + '. No report can be created for ' + monthLabel(S.month) + '.', 'bad');

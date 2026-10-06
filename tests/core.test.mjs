@@ -72,7 +72,7 @@ test('Word and PDF files can be built', async () => {
   const zip = await buildDocxZip(client, models).generateAsync({ type: 'uint8array' });
   assert.ok(zip.length > 1000);
   const pdf = buildPdfDoc(client, models, jsPDF, autoTable);
-  assert.equal(pdf.getNumberOfPages(), 2);
+  assert.equal(pdf.getNumberOfPages(), 4); // two pages per month
 });
 
 test('the next report starts from what the last saved report left behind', () => {
