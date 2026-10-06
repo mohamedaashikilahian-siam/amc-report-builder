@@ -5,7 +5,7 @@
   --accent: #0B6E6A; --accent-ink: #FFFFFF; --accent-soft: #D8EDEB;
   --warn: #8A5200; --warn-soft: #FBEACB; --bad: #9C2A2A; --bad-soft: #F6DBDB; --good: #1B7348;
   --field: #F6F8FA;
-  --paper: #FFFFFF; --paper-ink: #1B1B1B; --paper-muted: #6E7A86; --paper-line: #BFC8D2; --paper-head: #E8EDF2; --paper-hi: #E3F1F0;
+  --paper: #FFFFFF; --paper-ink: #2C2C2C; --brand: #C0392B; --paper-zebra: #F5F5F5; --paper-muted: #6E7A86; --paper-line: #CCCCCC; --paper-head: #E8EDF2; --paper-hi: #E3F1F0;
   --sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -117,3 +117,15 @@ html { background: var(--bg); }
 .amcbox.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 .amcbox.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Siam report styling in the preview */
+.sheet h4 { color: var(--brand); font-size: 14px; margin: 30px 0 14px; padding-bottom: 4px; border-bottom: 1.5px solid var(--brand); }
+.sheet .lh + h4 { margin-top: 18px; }
+.sheet th { background: var(--brand); color: #fff; }
+.sheet tr:nth-child(even) td { background: var(--paper-zebra); }
+.sheet .tick.yes { color: #2E9E4F; } .sheet .tick.no { color: var(--brand); }
+.sheet .kvs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+.sheet .kv { padding: 0 0 4px 4px; border-bottom: 1px solid #999; overflow-wrap: anywhere; }
+.sheet .pgbreak { margin: 28px -40px 0; border-top: 1px dashed var(--paper-line); color: var(--paper-muted); font-size: 10px; text-align: center; }
+.sheet p { text-align: justify; }
+@media (max-width: 640px) { .sheet .kvs { grid-template-columns: 1fr; } }
