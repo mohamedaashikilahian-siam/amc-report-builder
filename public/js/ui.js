@@ -226,6 +226,10 @@ function renderAll() {
 /* ---------- export ---------- */
 const bytes = b64 => Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
 const loadAssets = async () => ({ logo: bytes(LOGO_B64), watermark: bytes(WATERMARK_B64) });
+function saveBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
 async function doExport(kind) {
   const c = curClient(); if (!c || !monthRe.test(S.month)) return setMsg('Pick a month first.', 'bad');
   if (monthAfterAmc(c, S.month)) return setMsg('The AMC ended on ' + fmtDate(c.amcEnd) + '. No report can be created for ' + monthLabel(S.month) + '.', 'bad');
