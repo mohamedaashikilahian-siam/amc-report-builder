@@ -1,5 +1,4 @@
-/* Test server: serves public/ but answers /js/firebase-config.js with a null config,
-   so the app runs on localStorage and can never reach production Firestore. */
+/* Plain static server for public/. The tests themselves stub /js/firebase-config.js with page.route (see support.mjs). */
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -11,10 +10,6 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 http.createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (path === '/js/firebase-config.js') {
-    res.writeHead(200, { 'content-type': 'text/javascript' });
-    return res.end('export const firebaseConfig = null;\n');
-  }
   const file = normalize(join(ROOT, path === '/' ? 'index.html' : path));
   if (!file.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
   try {

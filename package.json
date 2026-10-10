@@ -6,14 +6,17 @@
   "description": "Monthly AMC report builder with saved hour balances, Word and PDF export",
   "scripts": {
     "start": "npx --yes serve public -l 5173",
-    "test": "node --test tests/core.test.mjs",
+    "test": "node --test tests/core.test.mjs tests/unit/*.test.mjs tests/export/*.test.mjs",
+    "test:tz": "TZ=Asia/Kolkata node --test tests/core.test.mjs tests/unit/*.test.mjs tests/export/*.test.mjs && TZ=America/Los_Angeles node --test tests/core.test.mjs tests/unit/*.test.mjs tests/export/*.test.mjs",
     "test:e2e": "playwright test -c tests/e2e/playwright.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
+    "@xmldom/xmldom": "^0.9.12",
     "jspdf": "2.5.1",
     "jspdf-autotable": "3.8.2",
-    "jszip": "3.10.1"
+    "jszip": "3.10.1",
+    "pdfjs-dist": "^6.4.299"
   },
   "dependencies": {
     "firebase": "^12.19.0"

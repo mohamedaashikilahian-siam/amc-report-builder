@@ -61,6 +61,21 @@ function amcState(client, today) {
   return { ended: days < 0, days, warn: days >= 0 && end <= limit };
 }
 const monthAfterAmc = (client, month) => month > client.amcEnd.slice(0, 7);
+/* Warns about a date found in a remark. Only for reports from the previous calendar month onwards.
+   `month` is the report month (YYYY-MM), `today` a Date. Returns { cls: 'warn' | 'bad', t } or null. */
+function expiryFlag(remark, month, today) {
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayYM = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  if (!remark || month < addMonth(todayYM, -1)) return null;
+  const m = remark.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/i);
+  if (!m) return null;
+  const mi = MON.findIndex(x => x.toLowerCase() === m[1].toLowerCase().slice(0, 3));
+  const days = Math.round((new Date(+m[3], mi, +m[2]) - startToday) / 864e5);
+  if (days < 0) return { cls: 'bad', t: '⚠ Date passed ' + (-days) + ' day' + (days === -1 ? '' : 's') + ' ago. Check and update this remark.' };
+  if (days === 0) return { cls: 'warn', t: '⚠ This date is today. Confirm the renewal.' };
+  if (days <= 30) return { cls: 'warn', t: '⚠ Due in ' + days + ' day' + (days === 1 ? '' : 's') + '.' };
+  return null;
+}
 function usedText(work) {
   const w = work.filter(x => x.mins > 0);
   if (w.length <= 1) return fmtDur(totalMins(work));
@@ -343,4 +358,4 @@ function buildPdfDoc(client, models, jsPDFCtor, autoTableFn, assets) {
 }
 const pdfBlob = (client, models, assets) => buildPdfDoc(client, models, globalThis.jspdf.jsPDF, null, assets).output('blob');
 
-export { MON, MONTHS, DEFAULT_ACTS, esc, monthLabel, fmtDate, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, amcState, monthAfterAmc, usedText, historyRows, genSummary, makeModel, buildDocxZip, docxBlob, buildPdfDoc, pdfBlob };
+export { MON, MONTHS, DEFAULT_ACTS, esc, monthLabel, fmtDate, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, expiryFlag, amcState, monthAfterAmc, usedText, historyRows, genSummary, makeModel, buildDocxZip, docxBlob, buildPdfDoc, pdfBlob };
