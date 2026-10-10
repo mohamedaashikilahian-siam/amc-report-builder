@@ -1,5 +1,5 @@
 /* ===== AMC Report Builder: interface ===== */
-import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, amcState, monthAfterAmc, fmtDate, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
+import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, expiryFlag as coreExpiryFlag, amcState, monthAfterAmc, fmtDate, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
 import { createStore } from './store.js';
 import { LOGO_B64, WATERMARK_B64 } from './brand.js';
 document.documentElement.style.setProperty('--wm', 'url(data:image/png;base64,' + WATERMARK_B64 + ')');
@@ -56,18 +56,8 @@ async function putReport(doc) { await store.set('reports', doc.clientId + '_' + 
 async function removeReport(id) { await store.remove('reports', id); }
 function setMsg(t, cls) { S.msg = t; S.msgCls = cls || ''; const m = $('#msg'); if (m) { m.textContent = t; m.className = 'msg ' + (cls || ''); } }
 
-/* ---------- expiry flags (only for recent months) ---------- */
-function expiryFlag(remark) {
-  if (!remark || S.month < addMonth(todayYM, -1)) return null;
-  const m = remark.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/i);
-  if (!m) return null;
-  const mi = MON.findIndex(x => x.toLowerCase() === m[1].toLowerCase().slice(0, 3));
-  const days = Math.round((new Date(+m[3], mi, +m[2]) - startToday) / 864e5);
-  if (days < 0) return { cls: 'bad', t: '⚠ Date passed ' + (-days) + ' day' + (days === -1 ? '' : 's') + ' ago. Check and update this remark.' };
-  if (days === 0) return { cls: 'warn', t: '⚠ This date is today. Confirm the renewal.' };
-  if (days <= 30) return { cls: 'warn', t: '⚠ Due in ' + days + ' day' + (days === 1 ? '' : 's') + '.' };
-  return null;
-}
+/* ---------- expiry flags (only for recent months): logic lives in core.js ---------- */
+const expiryFlag = remark => coreExpiryFlag(remark, S.month, now);
 
 /* ---------- render: clients ---------- */
 function renderClients() {
