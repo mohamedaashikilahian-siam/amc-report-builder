@@ -7,20 +7,20 @@ test('Word and PDF buttons trigger a download with the right file name', async (
   await open(page);
   await pick(page, 'Alpha');
   const pdf = await download(page, exportBtn('pdf'));
-  expect(pdf.name).toBe('Alpha-AMC-Report-2026-10.pdf');
+  expect(pdf.name).toBe('Alpha-AMC-Report-Oct-2026.pdf');
   expect(pdf.bytes.subarray(0, 5).toString()).toBe('%PDF-');
   const docx = await download(page, exportBtn('docx'));
-  expect(docx.name).toBe('Alpha-AMC-Report-2026-10.docx');
+  expect(docx.name).toBe('Alpha-AMC-Report-Oct-2026.docx');
   expect(docx.bytes.subarray(0, 2).toString()).toBe('PK');
-  await expect(page.locator('#msg')).toContainText('Saved October 2026 and downloaded Alpha-AMC-Report-2026-10.docx');
+  await expect(page.locator('#msg')).toContainText('Saved October 2026 and downloaded Alpha-AMC-Report-Oct-2026.docx');
 });
 
 test('with earlier months included the name says "to"', async ({ page }) => {
   await open(page);
   await pick(page, 'Bravo');
   await page.locator('#prev').check();
-  expect((await download(page, exportBtn('pdf'))).name).toBe('Bravo-AMC-Report-to-2026-10.pdf');
-  expect((await download(page, exportBtn('docx'))).name).toBe('Bravo-AMC-Report-to-2026-10.docx');
+  expect((await download(page, exportBtn('pdf'))).name).toBe('Bravo-AMC-Report-to-Oct-2026.pdf');
+  expect((await download(page, exportBtn('docx'))).name).toBe('Bravo-AMC-Report-to-Oct-2026.docx');
 });
 
 test('downloading saves the month first', async ({ page }) => {

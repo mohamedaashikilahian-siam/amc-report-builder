@@ -1,5 +1,5 @@
 /* ===== AMC Report Builder: interface ===== */
-import { MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, expiryFlag as coreExpiryFlag, amcState, monthAfterAmc, fmtDate, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
+import { reportFileName, MON, DEFAULT_ACTS, esc, monthLabel, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, expiryFlag as coreExpiryFlag, amcState, monthAfterAmc, fmtDate, genSummary, makeModel, docxBlob, pdfBlob } from './core.js';
 import { createStore } from './store.js';
 import { LOGO_B64, WATERMARK_B64 } from './brand.js';
 document.documentElement.style.setProperty('--wm', 'url(data:image/png;base64,' + WATERMARK_B64 + ')');
@@ -225,7 +225,7 @@ async function doExport(kind) {
   if (monthAfterAmc(c, S.month)) return setMsg('The AMC ended on ' + fmtDate(c.amcEnd) + '. No report can be created for ' + monthLabel(S.month) + '.', 'bad');
   if (S.work.some(w => isNaN(parseDur(w.dur)))) return setMsg('One of the times could not be read. Use 50m, 1h 15m or 1:15.', 'bad');
   const models = modelsToShow(); if (!models.length) return;
-  const name = c.label.replace(/[^A-Za-z0-9]+/g, '-') + '-AMC-Report-' + (S.includePrev ? 'to-' : '') + S.month + '.' + kind;
+  const name = reportFileName(c, S.month, S.includePrev, kind);
   try {
     setMsg('Saving and building ' + kind.toUpperCase() + '...');
     await putReport(formDoc());
