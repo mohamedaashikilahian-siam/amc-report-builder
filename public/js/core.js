@@ -6,6 +6,11 @@ const DEFAULT_ACTS = ['Website Backup','Plugin Updates','Security & Malware Scan
 const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const monthLabel = ym => { const p = ym.split('-'); return MONTHS[+p[1]-1] + ' ' + p[0]; };
 const fmtDate = iso => { const p = iso.split('-').map(Number); return p[2] + ' ' + MON[p[1]-1] + ' ' + p[0]; };
+/* File name for a downloaded report: ABDF-AMC-Report-Oct-2026.pdf (with earlier months: ABDF-AMC-Report-to-Oct-2026.pdf) */
+function reportFileName(client, month, includePrev, ext) {
+  const p = month.split('-');
+  return client.label.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-AMC-Report-' + (includePrev ? 'to-' : '') + MON[+p[1] - 1] + '-' + p[0] + '.' + ext;
+}
 function addMonth(ym, n) { const p = ym.split('-').map(Number); const t = p[0]*12 + (p[1]-1) + n; return Math.floor(t/12) + '-' + String(t%12 + 1).padStart(2,'0'); }
 
 function fmtDur(m) {
@@ -358,4 +363,4 @@ function buildPdfDoc(client, models, jsPDFCtor, autoTableFn, assets) {
 }
 const pdfBlob = (client, models, assets) => buildPdfDoc(client, models, globalThis.jspdf.jsPDF, null, assets).output('blob');
 
-export { MON, MONTHS, DEFAULT_ACTS, esc, monthLabel, fmtDate, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, expiryFlag, amcState, monthAfterAmc, usedText, historyRows, genSummary, makeModel, buildDocxZip, docxBlob, buildPdfDoc, pdfBlob };
+export { reportFileName, MON, MONTHS, DEFAULT_ACTS, esc, monthLabel, fmtDate, addMonth, fmtDur, shortDur, parseDur, totalMins, hoursFor, carryForward, expiryFlag, amcState, monthAfterAmc, usedText, historyRows, genSummary, makeModel, buildDocxZip, docxBlob, buildPdfDoc, pdfBlob };
